@@ -1,0 +1,43 @@
+// src/models/index.js
+
+const dbConfig = require("../config/db.config.js");
+const Sequelize = require("sequelize");
+
+// CORRECTED LINE: Uses dbConfig.PASSWORD
+const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
+  host: dbConfig.HOST,
+  dialect: dbConfig.dialect,
+  pool: dbConfig.pool
+});
+
+const db = {};
+
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
+
+// Load models
+db.User = require("./user.model.js")(sequelize, Sequelize);
+db.Car = require("./car.model.js")(sequelize, Sequelize);
+db.CarImage = require("./carImage.model.js")(sequelize, Sequelize);
+db.UserProfile = require("./userProfile.model.js")(sequelize, Sequelize);
+db.ActivityLog = require("./activityLog.model.js")(sequelize, Sequelize);
+
+// --- Define Relationships ---
+db.Car.hasMany(db.CarImage, {
+  foreignKey: "car_id",
+  sourceKey: "id",
+  as: "images",
+});
+db.CarImage.belongsTo(db.Car, {
+  foreignKey: "car_id",
+  targetKey: "id",
+  as: "car",
+});
+
+db.ActivityLog.belongsTo(db.Car, { as: "car", foreignKey: 'car_id' });
+db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: 'user_id' });
+db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: 'user_id' });
+db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: 'user_id' });
+db.Car.belongsTo(db.User, { as: "owner", foreignKey: 'owner_id' });
+
+module.exports = db;
