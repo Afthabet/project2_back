@@ -1,6 +1,8 @@
 const app = require('./src/app');
 const db = require("./src/models");
 
+import dotenv from "dotenv";
+dotenv.config();
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {

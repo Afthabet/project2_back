@@ -1,21 +1,38 @@
 // src/models/index.js
 
+require("dotenv").config();
 const dbConfig = require("../config/db.config.js");
 const Sequelize = require("sequelize");
 
-// CORRECTED LINE: Uses dbConfig.PASSWORD
-const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
-  host: dbConfig.HOST,
-  dialect: dbConfig.dialect,
-  pool: dbConfig.pool
-});
+let sequelize;
+
+// If DATABASE_URL exists, we are in production (Render)
+if (process.env.DATABASE_URL) {
+  sequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: "postgres",
+    protocol: "postgres",
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false, // Required for Render
+      },
+    },
+  });
+} else {
+  // Local development
+  sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
+    host: dbConfig.HOST,
+    dialect: dbConfig.dialect,
+    pool: dbConfig.pool,
+  });
+}
 
 const db = {};
 
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Load models
+// --- Load models ---
 db.User = require("./user.model.js")(sequelize, Sequelize);
 db.Car = require("./car.model.js")(sequelize, Sequelize);
 db.CarImage = require("./carImage.model.js")(sequelize, Sequelize);
@@ -34,10 +51,10 @@ db.CarImage.belongsTo(db.Car, {
   as: "car",
 });
 
-db.ActivityLog.belongsTo(db.Car, { as: "car", foreignKey: 'car_id' });
-db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: 'user_id' });
-db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: 'user_id' });
-db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: 'user_id' });
-db.Car.belongsTo(db.User, { as: "owner", foreignKey: 'owner_id' });
+db.ActivityLog.belongsTo(db.Car, { as: "car", foreignKey: "car_id" });
+db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
+db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
+db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: "user_id" });
+db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
 
 module.exports = db;
