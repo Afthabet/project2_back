@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     drivetrain: DataTypes.STRING(100),
     interiorColor: DataTypes.STRING(50),
   }, {
-    tableName: "cars_car",   // 👈 important!
+    tableName: "cars_car",
     timestamps: false,
   });
 

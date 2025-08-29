@@ -166,3 +166,66 @@ exports.delete = async (req, res) => {
     res.status(500).send({ message: "Could not delete car with id=" + id });
   }
 };
+exports.update = async (req, res) => {
+  const id = req.params.id;
+  const transaction = await db.sequelize.transaction();
+  try {
+    const car = await Car.findByPk(id, { transaction });
+    if (!car) {
+      await transaction.rollback();
+      return res.status(404).send({ message: "Car not found." });
+    }
+    // 1. Update text fields
+    await car.update({
+      make: req.body.name.split(' ')[0] || 'Unknown',
+      model: req.body.name.split(' ').slice(1).join(' ') || 'Model',
+      year: parseInt(req.body.year),
+      price: parseFloat(req.body.price),
+      mileage: parseInt(req.body.mileage),
+      bodyStyle: req.body.bodyType,
+      grade: req.body.grade,
+    }, { transaction });
+    // 2. Handle Image Updates
+    const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
+    const existingImageIds = existingImages.map(img => img.id);
+    // Delete images that are no longer in the list
+    await CarImage.destroy({
+      where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } },
+      transaction
+    });
+
+    // Update the order of remaining existing images
+    for (let i = 0; i < existingImages.length; i++) {
+      await CarImage.update({ order: i }, { where: { id: existingImages[i].id }, transaction });
+    }
+
+    // 3. Add new images
+    if (req.files && req.files.length > 0) {
+      let currentOrder = existingImages.length;
+      for (const file of req.files) {
+        const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
+        const filepath = path.join(uploadDir, filename);
+
+        await sharp(file.buffer)
+          .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
+          .toFormat('jpeg', { quality: 85 })
+          .toFile(filepath);
+        
+        await CarImage.create({
+          image: `/uploads/${filename}`,
+          order: currentOrder++,
+          car_id: id,
+        }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+    const updatedCar = await Car.findByPk(id, { include: ["images"] });
+    res.send(updatedCar);
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Update error:", error);
+    res.status(500).send({ message: "Error updating car." });
+  }
+};

@@ -10,12 +10,8 @@ const upload = multer({ storage: storage });
 
 // GET all cars
 router.get('/', cars.findAll);
-
-// POST a new car. The `upload.array('images', 10)` middleware is crucial.
-// It tells Express to expect up to 10 files in a field named 'images'.
-// It will process the files and make them available in `req.files`.
 router.post('/', upload.array('images', 10), cars.create);
-
+router.put('/:id', upload.array('images', 10), cars.update);
 // GET a single car by ID
 router.get('/:id', cars.findOne);
 
