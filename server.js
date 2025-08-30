@@ -8,6 +8,9 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}.`);
 });
+app.get("/", (req, res) => {
+  res.send("🚀 Backend is running on Render!");
+});
 
 // Sync database
 // In development, you might use { force: true } to drop and re-sync db
