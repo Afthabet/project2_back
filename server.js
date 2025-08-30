@@ -1,22 +1,28 @@
-const app = require('./src/app');
-const db = require("./src/models");
+// This file is the main entry point for the application.
+// It imports the Express app, connects to the database, and starts the server.
 
-import dotenv from "dotenv";
+const app = require('./src/app'); // Imports your configured Express app
+const db = require("./src/models");
+const dotenv = require("dotenv");
+
+// Load environment variables from .env file
 dotenv.config();
+
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}.`);
-});
-app.get("/", (req, res) => {
-  res.send("🚀 Backend is running on Render!");
-});
+// This is the main server start-up.
+const startServer = () => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}.`);
+  });
+};
 
-// Sync database
-// In development, you might use { force: true } to drop and re-sync db
+// Sync database and then start the server
+// This ensures the database is ready before the server starts accepting requests.
 db.sequelize.sync()
   .then(() => {
-    console.log("✅ Synced database.");
+    console.log("✅ Synced database successfully.");
+    startServer(); // Start the server only after the database sync is successful
   })
   .catch((err) => {
     console.log("❌ Failed to sync database: " + err.message);

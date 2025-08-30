@@ -1,29 +1,24 @@
 // src/models/index.js
-
 require("dotenv").config();
 const dbConfig = require("../config/db.config.js");
 const Sequelize = require("sequelize");
 
+// Determine the environment
+const env = process.env.NODE_ENV || "development";
+const config = dbConfig[env];
+
 let sequelize;
 
-// If DATABASE_URL exists, we are in production (Render)
-if (process.env.DATABASE_URL) {
-  sequelize = new Sequelize(process.env.DATABASE_URL, {
-    dialect: "postgres",
-    protocol: "postgres",
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false, // Required for Render
-      },
-    },
-  });
+// Use the correct configuration based on the environment
+if (env === "production" && config.use_env_variable) {
+  // Production environment (Render)
+  sequelize = new Sequelize(process.env[config.use_env_variable], config);
 } else {
-  // Local development
-  sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
-    host: dbConfig.HOST,
-    dialect: dbConfig.dialect,
-    pool: dbConfig.pool,
+  // Development environment (your local machine)
+  sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
+    host: config.HOST,
+    dialect: config.dialect,
+    pool: config.pool,
   });
 }
 

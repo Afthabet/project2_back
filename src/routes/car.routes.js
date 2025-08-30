@@ -1,3 +1,4 @@
+// routes/car.routes.js
 const express = require('express');
 const router = express.Router();
 const cars = require('../controllers/car.controller.js');
@@ -10,7 +11,10 @@ const upload = multer({ storage: storage });
 
 // GET all cars
 router.get('/', cars.findAll);
+
+// ✅ This is the route that handles the new car creation.
 router.post('/', upload.array('images', 10), cars.create);
+
 router.put('/:id', upload.array('images', 10), cars.update);
 // GET a single car by ID
 router.get('/:id', cars.findOne);

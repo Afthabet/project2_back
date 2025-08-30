@@ -42,7 +42,7 @@ exports.create = async (req, res) => {
       bodyStyle: carData.bodyType,
       grade: carData.grade,
       isAvailable: true,
-      // FIX: The database requires a value for the 'features' column.
+      // The database requires a value for the 'features' column.
       // We are now providing an empty JSON array ('[]') as a default.
       features: carData.features || '[]', 
     }, { transaction });
@@ -87,7 +87,6 @@ exports.create = async (req, res) => {
   }
 };
 
-// ... (Your other controller functions: findAll, findOne, etc.)
 exports.findAll = (req, res) => {
     Car.findAll({
         include: [{ model: CarImage, as: 'images', order: [['order', 'ASC']] }]
@@ -175,31 +174,42 @@ exports.update = async (req, res) => {
       await transaction.rollback();
       return res.status(404).send({ message: "Car not found." });
     }
+    
     // 1. Update text fields
     await car.update({
-      make: req.body.name.split(' ')[0] || 'Unknown',
-      model: req.body.name.split(' ').slice(1).join(' ') || 'Model',
+      make: req.body.name.split(' ')[0] || car.make,
+      model: req.body.name.split(' ').slice(1).join(' ') || car.model,
       year: parseInt(req.body.year),
       price: parseFloat(req.body.price),
       mileage: parseInt(req.body.mileage),
       bodyStyle: req.body.bodyType,
       grade: req.body.grade,
+      features: req.body.features || car.features,
     }, { transaction });
+
     // 2. Handle Image Updates
+    // The frontend sends a JSON string of the images to keep
     const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
     const existingImageIds = existingImages.map(img => img.id);
-    // Delete images that are no longer in the list
-    await CarImage.destroy({
-      where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } },
-      transaction
-    });
 
-    // Update the order of remaining existing images
+    // Find and delete images that are NOT in the existingImageIds list
+    const imagesToDelete = await CarImage.findAll({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } } });
+    for (const img of imagesToDelete) {
+        // Optional: Delete file from server storage
+        const filepath = path.join(__dirname, '..', '..', 'public', img.image);
+        if (fs.existsSync(filepath)) {
+            fs.unlinkSync(filepath);
+        }
+    }
+    await CarImage.destroy({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } }, transaction });
+
+
+    // Update the order of the remaining images
     for (let i = 0; i < existingImages.length; i++) {
       await CarImage.update({ order: i }, { where: { id: existingImages[i].id }, transaction });
     }
 
-    // 3. Add new images
+    // 3. Add any new images that were uploaded
     if (req.files && req.files.length > 0) {
       let currentOrder = existingImages.length;
       for (const file of req.files) {
@@ -226,6 +236,6 @@ exports.update = async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     console.error("Update error:", error);
-    res.status(500).send({ message: "Error updating car." });
+    res.status(500).send({ message: "Error updating car: " + error.message });
   }
 };
