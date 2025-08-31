@@ -11,7 +11,8 @@ app.use(cors({
     "http://afthabudheenet.me",     // your domain
     "https://afthabudheenet.me",    // https domain
     "http://www.afthabudheenet.me",
-    "https://www.afthabudheenet.me"
+    "https://www.afthabudheenet.me",
+    "http://afthabudheenet.me/"
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
