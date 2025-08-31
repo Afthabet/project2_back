@@ -22,10 +22,18 @@ module.exports = (sequelize, DataTypes) => {
     bodyStyle: DataTypes.STRING(100),
     drivetrain: DataTypes.STRING(100),
     interiorColor: DataTypes.STRING(50),
-  }, {
-    tableName: "cars_car",
-    timestamps: false,
-  });
+    grade: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    thumbnail: {
+      type: DataTypes.STRING(200),
+      allowNull: true,
+    }
+  },{
+      tableName: "cars_car",
+      timestamps: false,
+    });
 
   return Car;
 };

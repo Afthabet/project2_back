@@ -24,8 +24,8 @@ exports.create = async (req, res) => {
   console.log("1. Received form data:", carData);
   console.log(`2. Received ${files ? files.length : 0} file(s) for upload.`);
 
-  if (!carData.name || !carData.price) {
-    return res.status(400).send({ message: "Name and price cannot be empty!" });
+  if (!carData.name || !carData.price || !carData.grade || !carData.bodyType) {
+    return res.status(400).send({ message: "Name, price, grade, and body type cannot be empty!" });
   }
 
   const transaction = await db.sequelize.transaction();
@@ -39,21 +39,27 @@ exports.create = async (req, res) => {
       year: parseInt(carData.year),
       price: parseFloat(carData.price),
       mileage: parseInt(carData.mileage),
+      // UPDATED: Ensure bodyStyle and grade are saved correctly.
       bodyStyle: carData.bodyType,
       grade: carData.grade,
       isAvailable: true,
-      // The database requires a value for the 'features' column.
-      // We are now providing an empty JSON array ('[]') as a default.
       features: carData.features || '[]', 
     }, { transaction });
 
     console.log("4. ✅ Car record CREATED successfully! ID:", newCar.id);
+
+    let firstImagePath = null;
 
     if (files && files.length > 0) {
       console.log("5. Processing and saving images...");
       const imagePromises = files.map((file, index) => {
         const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
         const filepath = path.join(uploadDir, filename);
+        const publicPath = `/uploads/${filename}`;
+
+        if (index === 0) {
+          firstImagePath = publicPath;
+        }
 
         return sharp(file.buffer)
           .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
@@ -61,7 +67,7 @@ exports.create = async (req, res) => {
           .toFile(filepath)
           .then(() => {
             return CarImage.create({
-              image: `/uploads/${filename}`,
+              image: publicPath,
               order: index,
               car_id: newCar.id 
             }, { transaction });
@@ -72,6 +78,12 @@ exports.create = async (req, res) => {
     } else {
       console.log("5. No images were uploaded.");
     }
+
+    if (firstImagePath) {
+      newCar.thumbnail = firstImagePath;
+      await newCar.save({ transaction });
+      console.log("6.5. ✅ Car thumbnail set to:", firstImagePath);
+    }
     
     await transaction.commit();
     console.log("7. 🏆 Database transaction committed successfully.");
@@ -81,9 +93,9 @@ exports.create = async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     console.error("❌ --- FATAL ERROR --- ❌");
-    console.error("An error occurred during the create process:", error.original ? error.original.detail : error.message);
+    console.error("An error occurred during the create process:", error.message);
     console.error("-----------------------");
-    res.status(500).send({ message: `An error occurred while creating the car: ${error.original ? error.original.detail : error.message}` });
+    res.status(500).send({ message: `An error occurred while creating the car: ${error.message}` });
   }
 };
 
@@ -94,9 +106,11 @@ exports.findAll = (req, res) => {
     .then(data => {
         const carsWithStatus = data.map(car => {
             const carJson = car.toJSON();
-            // Create a 'name' field for consistency if it doesn't exist
             if (!carJson.name) {
                 carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
+            }
+            if (!carJson.thumbnail && carJson.images && carJson.images.length > 0) {
+                carJson.thumbnail = carJson.images[0].image;
             }
             return {
                 ...carJson,
@@ -175,46 +189,45 @@ exports.update = async (req, res) => {
       return res.status(404).send({ message: "Car not found." });
     }
     
-    // 1. Update text fields
     await car.update({
       make: req.body.name.split(' ')[0] || car.make,
       model: req.body.name.split(' ').slice(1).join(' ') || car.model,
       year: parseInt(req.body.year),
       price: parseFloat(req.body.price),
       mileage: parseInt(req.body.mileage),
+      // UPDATED: Ensure bodyStyle and grade are updated correctly.
       bodyStyle: req.body.bodyType,
       grade: req.body.grade,
       features: req.body.features || car.features,
     }, { transaction });
 
-    // 2. Handle Image Updates
-    // The frontend sends a JSON string of the images to keep
     const existingImages = req.body.existingImages ? JSON.parse(req.body.existingImages) : [];
     const existingImageIds = existingImages.map(img => img.id);
 
-    // Find and delete images that are NOT in the existingImageIds list
     const imagesToDelete = await CarImage.findAll({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } } });
     for (const img of imagesToDelete) {
-        // Optional: Delete file from server storage
         const filepath = path.join(__dirname, '..', '..', 'public', img.image);
-        if (fs.existsSync(filepath)) {
-            fs.unlinkSync(filepath);
-        }
+        if (fs.existsSync(filepath)) { fs.unlinkSync(filepath); }
     }
     await CarImage.destroy({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } }, transaction });
 
 
-    // Update the order of the remaining images
     for (let i = 0; i < existingImages.length; i++) {
       await CarImage.update({ order: i }, { where: { id: existingImages[i].id }, transaction });
     }
 
-    // 3. Add any new images that were uploaded
+    let newThumbnailPath = existingImages.length > 0 ? existingImages[0].image : null;
+
     if (req.files && req.files.length > 0) {
       let currentOrder = existingImages.length;
       for (const file of req.files) {
         const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
         const filepath = path.join(uploadDir, filename);
+        const publicPath = `/uploads/${filename}`;
+        
+        if (currentOrder === 0) {
+          newThumbnailPath = publicPath;
+        }
 
         await sharp(file.buffer)
           .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
@@ -222,12 +235,15 @@ exports.update = async (req, res) => {
           .toFile(filepath);
         
         await CarImage.create({
-          image: `/uploads/${filename}`,
+          image: publicPath,
           order: currentOrder++,
           car_id: id,
         }, { transaction });
       }
     }
+    
+    car.thumbnail = newThumbnailPath;
+    await car.save({ transaction });
 
     await transaction.commit();
     const updatedCar = await Car.findByPk(id, { include: ["images"] });

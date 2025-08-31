@@ -19,7 +19,8 @@ const startServer = () => {
 
 // Sync database and then start the server
 // This ensures the database is ready before the server starts accepting requests.
-db.sequelize.sync()
+// UPDATED: Added { alter: true } to update the database schema with the new 'thumbnail' column.
+db.sequelize.sync({ alter: true })
   .then(() => {
     console.log("✅ Synced database successfully.");
     startServer(); // Start the server only after the database sync is successful
@@ -27,3 +28,4 @@ db.sequelize.sync()
   .catch((err) => {
     console.log("❌ Failed to sync database: " + err.message);
   });
+
