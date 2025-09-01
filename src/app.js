@@ -5,18 +5,24 @@ const path = require('path');
 const app = express();
 
 // --- Middleware ---
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://afthabudheenet.me",
+  "https://afthabudheenet.me"
+];
+
 app.use(cors({
-  origin: [
-    "http://localhost:5173",        // for local dev
-    "http://afthabudheenet.me",     // your domain
-    "https://afthabudheenet.me",    // https domain
-    "http://www.afthabudheenet.me",
-    "https://www.afthabudheenet.me",
-    "http://afthabudheenet.me/"
-  ],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
+
 ;
 
 app.use(express.json({ limit: '50mb' }));
