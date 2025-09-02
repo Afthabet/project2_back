@@ -14,36 +14,44 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
   console.log(`Created uploads directory at: ${uploadDir}`);
 }
+const parseFeatures = (featuresStr) => {
+  if (!featuresStr || typeof featuresStr !== 'string') {
+    return [];
+  }
+  return featuresStr.split(',').map(f => f.trim()).filter(Boolean);
+};
 
 exports.create = async (req, res) => {
   console.log("--- [CONTROLLER] cars.create ---");
-
   const carData = req.body;
   const files = req.files;
   
-  console.log("1. Received form data:", carData);
-  console.log(`2. Received ${files ? files.length : 0} file(s) for upload.`);
-
-  if (!carData.name || !carData.price || !carData.grade || !carData.bodyType) {
-    return res.status(400).send({ message: "Name, price, grade, and body type cannot be empty!" });
+  if (!carData.name || !carData.price) {
+    return res.status(400).send({ message: "Name and price cannot be empty!" });
   }
 
   const transaction = await db.sequelize.transaction();
-  console.log("3. Started database transaction.");
 
   try {
     const newCar = await Car.create({
       id: carData.id,
-      make: carData.name.split(' ')[0] || 'Unknown',
-      model: carData.name.split(' ').slice(1).join(' ') || 'Model',
+      make: carData.make || carData.name.split(' ')[0],
+      model: carData.model || carData.name.split(' ').slice(1).join(' '),
       year: parseInt(carData.year),
       price: parseFloat(carData.price),
       mileage: parseInt(carData.mileage),
-      // UPDATED: Ensure bodyStyle and grade are saved correctly.
+      description: carData.description,
+      color: carData.color,
+      engine: carData.engine,
+      power: carData.power,
+      transmission: carData.transmission,
+      trim: carData.trim,
+      drivetrain: carData.drivetrain,
+      interiorColor: carData.interiorColor,
       bodyStyle: carData.bodyType,
       grade: carData.grade,
+      features: parseFeatures(carData.features),
       isAvailable: true,
-      features: carData.features || '[]', 
     }, { transaction });
 
     console.log("4. ✅ Car record CREATED successfully! ID:", newCar.id);
@@ -75,8 +83,6 @@ exports.create = async (req, res) => {
       });
       await Promise.all(imagePromises);
       console.log("6. ✅ Image records CREATED successfully!");
-    } else {
-      console.log("5. No images were uploaded.");
     }
 
     if (firstImagePath) {
@@ -87,14 +93,12 @@ exports.create = async (req, res) => {
     
     await transaction.commit();
     console.log("7. 🏆 Database transaction committed successfully.");
-    console.log("---------------------------------");
     res.status(201).send(newCar);
 
   } catch (error) {
     await transaction.rollback();
     console.error("❌ --- FATAL ERROR --- ❌");
     console.error("An error occurred during the create process:", error.message);
-    console.error("-----------------------");
     res.status(500).send({ message: `An error occurred while creating the car: ${error.message}` });
   }
 };
