@@ -2,6 +2,7 @@ const sharp = require('sharp');
 const db = require("../models");
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const Car = db.Car;
 const CarImage = db.CarImage;
 const path = require('path');
@@ -9,8 +10,10 @@ const fs = require('fs');
 
 const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const parseFeatures = (featuresStr) => {
+  if (!featuresStr || typeof featuresStr !== 'string') return [];
   if (!featuresStr || typeof featuresStr !== 'string') return [];
   return featuresStr.split(',').map(f => f.trim()).filter(Boolean);
 };
@@ -29,7 +32,9 @@ exports.create = async (req, res) => {
   const carData = req.body;
   const files = req.files;
 
+
   if (!carData.name || !carData.price) {
+    return res.status(400).send({ message: "Name and price are required." });
     return res.status(400).send({ message: "Name and price are required." });
   }
 
@@ -52,6 +57,7 @@ exports.create = async (req, res) => {
       grade: carData.grade,
       features: parseFeatures(carData.features),
       isAvailable: true,
+      owner_id: userId,
       owner_id: userId,
     }, { transaction });
 
@@ -86,10 +92,12 @@ exports.create = async (req, res) => {
       await newCar.save({ transaction });
     }
 
+
     await transaction.commit();
     res.status(201).send(newCar);
   } catch (error) {
     await transaction.rollback();
+    res.status(500).send({ message: `Error creating car: ${error.message}` });
     res.status(500).send({ message: `Error creating car: ${error.message}` });
   }
 };
@@ -259,6 +267,7 @@ exports.delete = async (req, res) => {
     const images = await CarImage.findAll({ where: { car_id: id } });
     for (const img of images) {
       const filepath = path.join(__dirname, '..', '..', 'public', img.image);
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
       if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     }
     await CarImage.destroy({ where: { car_id: id }, transaction });
