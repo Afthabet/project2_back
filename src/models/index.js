@@ -54,6 +54,6 @@ db.CarImage.belongsTo(db.Car, {
 // db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
 // db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
 // db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: "user_id" });
-// db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
+db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
 
 module.exports = db;
