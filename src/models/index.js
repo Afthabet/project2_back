@@ -31,10 +31,12 @@ db.sequelize = sequelize;
 db.User = require("./user.model.js")(sequelize, Sequelize);
 db.Car = require("./car.model.js")(sequelize, Sequelize);
 db.CarImage = require("./carImage.model.js")(sequelize, Sequelize);
-db.UserProfile = require("./userProfile.model.js")(sequelize, Sequelize);
-db.ActivityLog = require("./activityLog.model.js")(sequelize, Sequelize);
+// UPDATED: Removed user-related models that are not currently in use
+// db.UserProfile = require("./userProfile.model.js")(sequelize, Sequelize);
+// db.ActivityLog = require("./activityLog.model.js")(sequelize, Sequelize);
 
 // --- Define Relationships ---
+// This is the only relationship needed for the car and image functionality.
 db.Car.hasMany(db.CarImage, {
   foreignKey: "car_id",
   sourceKey: "id",
@@ -46,10 +48,12 @@ db.CarImage.belongsTo(db.Car, {
   as: "car",
 });
 
-db.ActivityLog.belongsTo(db.Car, { as: "car", foreignKey: "car_id" });
-db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
-db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
-db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: "user_id" });
-db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
+// UPDATED: Removed all other relationships related to the user management system
+// to prevent server errors.
+// db.ActivityLog.belongsTo(db.Car, { as: "car", foreignKey: "car_id" });
+// db.ActivityLog.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
+// db.UserProfile.belongsTo(db.User, { as: "user", foreignKey: "user_id" });
+// db.User.hasOne(db.UserProfile, { as: "profile", foreignKey: "user_id" });
+// db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
 
 module.exports = db;
