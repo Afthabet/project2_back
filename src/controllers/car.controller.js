@@ -18,7 +18,7 @@ const parseFeatures = (featuresStr) => {
 exports.create = async (req, res) => {
   const token = req.headers["x-access-token"];
   if (!token) return res.status(403).send({ message: "No token provided!" });
-  
+
   let userId;
   try {
     userId = jwt.verify(token, 'your-jwt-secret-key').id;
@@ -60,7 +60,7 @@ exports.create = async (req, res) => {
       const imagePromises = files.map((file, index) => {
         const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
         const filepath = path.join(uploadDir, filename);
-        const publicPath = `/uploads/${filename}`;
+        const publicPath = `uploads/${filename}`;
 
         if (index === 0) {
           firstImagePath = publicPath;
@@ -74,7 +74,7 @@ exports.create = async (req, res) => {
             return CarImage.create({
               image: publicPath,
               order: index,
-              car_id: newCar.id 
+              car_id: newCar.id
             }, { transaction });
           });
       });
@@ -95,57 +95,67 @@ exports.create = async (req, res) => {
 };
 
 exports.findAll = async (req, res) => {
-    try {
-        const { ownerId } = req.query;
-        let whereClause = {};
-        if (ownerId) whereClause.owner_id = ownerId;
-
-        // Corrected Query: The invalid 'order' property has been removed.
-        const cars = await Car.findAll({
-            where: whereClause,
-            include: [{ model: CarImage, as: 'images' }]
-        });
-
-        // The rest of the function remains the same
-        const formattedCars = cars.map(car => {
-            const carJson = car.get({ plain: true });
-            // Sort images here in the code instead of in the query
-            if (carJson.images && carJson.images.length > 0) {
-                carJson.images.sort((a, b) => a.order - b.order);
-            }
-            carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
-            if (!carJson.thumbnail && carJson.images.length > 0) {
-                carJson.thumbnail = carJson.images[0].image;
-            }
-            carJson.status = carJson.isAvailable ? 'Available' : 'Sold';
-            return carJson;
-        });
-        res.send(formattedCars);
-    } catch (err) {
-        // Added a log to see the actual error on the server
-        console.error("Error in findAll:", err);
-        res.status(500).send({ message: "Error retrieving cars." });
+  try {
+    const { status } = req.query;
+    const { ownerId } = req.query;
+    let whereClause = {};
+    if (ownerId) {
+      whereClause.owner_id = ownerId;
     }
+    if (status !== 'all') {
+      whereClause.isAvailable = true;
+    }
+    // Corrected Query: The invalid 'order' property has been removed.
+    const cars = await Car.findAll({
+      where: whereClause,
+      include: [{ model: CarImage, as: 'images' }]
+    });
+
+    // The rest of the function remains the same
+    const formattedCars = cars.map(car => {
+      const carJson = car.get({ plain: true });
+
+      // Manually sort the images by their order
+      if (carJson.images && carJson.images.length > 0) {
+        carJson.images.sort((a, b) => a.order - b.order);
+      }
+
+      carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
+
+      if (!carJson.thumbnail && carJson.images && carJson.images.length > 0) {
+        carJson.thumbnail = carJson.images[0].image;
+      }
+
+      carJson.status = carJson.isAvailable ? 'Available' : 'Sold';
+      return carJson;
+    });
+
+    res.send(formattedCars);
+  } catch (err) {
+    // Added a log to see the actual error on the server
+    console.error("Error in findAll:", err);
+    res.status(500).send({ message: "Error retrieving cars." });
+  }
 };
 
 exports.findOne = async (req, res) => {
-    const id = req.params.id;
-    try {
-        const car = await Car.findByPk(id, {
-            include: [{ model: CarImage, as: 'images', order: [['order', 'ASC']] }]
-        });
+  const id = req.params.id;
+  try {
+    const car = await Car.findByPk(id, {
+      include: [{ model: CarImage, as: 'images', order: [['order', 'ASC']] }]
+    });
 
-        if (car) {
-            const carJson = car.get({ plain: true });
-            carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
-            res.send(carJson);
-        } else {
-            res.status(404).send({ message: `Cannot find Car with id=${id}.` });
-        }
-    } catch (err) {
-        console.error(`Error retrieving Car with id=${id}:`, err);
-        res.status(500).send({ message: "Error retrieving Car with id=" + id });
+    if (car) {
+      const carJson = car.get({ plain: true });
+      carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
+      res.send(carJson);
+    } else {
+      res.status(404).send({ message: `Cannot find Car with id=${id}.` });
     }
+  } catch (err) {
+    console.error(`Error retrieving Car with id=${id}:`, err);
+    res.status(500).send({ message: "Error retrieving Car with id=" + id });
+  }
 };
 
 exports.update = async (req, res) => {
@@ -157,7 +167,7 @@ exports.update = async (req, res) => {
       await transaction.rollback();
       return res.status(404).send({ message: "Car not found." });
     }
-    
+
     await car.update({
       make: req.body.make || req.body.name.split(' ')[0],
       model: req.body.model || req.body.name.split(' ').slice(1).join(' '),
@@ -180,8 +190,8 @@ exports.update = async (req, res) => {
 
     const imagesToDelete = await CarImage.findAll({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } } });
     for (const img of imagesToDelete) {
-        const filepath = path.join(__dirname, '..', '..', 'public', img.image);
-        if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+      const filepath = path.join(__dirname, '..', '..', 'public', img.image);
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     }
     await CarImage.destroy({ where: { car_id: id, id: { [db.Sequelize.Op.notIn]: existingImageIds } }, transaction });
 
@@ -197,18 +207,18 @@ exports.update = async (req, res) => {
         const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
         const filepath = path.join(uploadDir, filename);
         const publicPath = `/uploads/${filename}`;
-        
+
         if (currentOrder === 0) newThumbnailPath = publicPath;
 
         await sharp(file.buffer)
           .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
           .toFormat('jpeg', { quality: 85 })
           .toFile(filepath);
-        
+
         await CarImage.create({ image: publicPath, order: currentOrder++, car_id: id }, { transaction });
       }
     }
-    
+
     car.thumbnail = newThumbnailPath;
     await car.save({ transaction });
 
@@ -224,17 +234,17 @@ exports.update = async (req, res) => {
 };
 
 exports.updateStatus = async (req, res) => {
-    const id = req.params.id;
-    try {
-        const car = await Car.findByPk(id);
-        if (!car) {
-            return res.status(404).send({ message: `Car with id=${id} not found.` });
-        }
-        await car.update({ isAvailable: !car.isAvailable });
-        res.send({ message: "Car status updated successfully." });
-    } catch (error) {
-        res.status(500).send({ message: "Error updating car status for id=" + id });
+  const id = req.params.id;
+  try {
+    const car = await Car.findByPk(id);
+    if (!car) {
+      return res.status(404).send({ message: `Car with id=${id} not found.` });
     }
+    await car.update({ isAvailable: !car.isAvailable });
+    res.send({ message: "Car status updated successfully." });
+  } catch (error) {
+    res.status(500).send({ message: "Error updating car status for id=" + id });
+  }
 };
 
 exports.delete = async (req, res) => {
