@@ -34,6 +34,15 @@ module.exports = (sequelize, DataTypes) => {
     thumbnail: {
       type: DataTypes.STRING(200),
       allowNull: true,
+    },
+    // UPDATED: Added owner_id to associate a car with a user (admin).
+    owner_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'auth_user', // This is the table name for your User model
+            key: 'id',
+        }
     }
   }, {
     tableName: "cars_car",
@@ -42,3 +51,4 @@ module.exports = (sequelize, DataTypes) => {
 
   return Car;
 };
+
