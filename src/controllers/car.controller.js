@@ -21,7 +21,7 @@ exports.create = async (req, res) => {
 
   let userId;
   try {
-    userId = jwt.verify(token, 'your-jwt-secret-key').id;
+    userId = jwt.verify(token, process.env.JWT_SECRET || "supersecretkey123").id;
   } catch (err) {
     return res.status(401).send({ message: "Unauthorized!" });
   }
