@@ -1,45 +1,43 @@
-// src/models/index.js
-require("dotenv").config();
-const dbConfig = require("../config/db.config.js");
-const Sequelize = require("sequelize");
+// src/models/user.model.js
 
-const env = process.env.NODE_ENV || "development";
-const config = dbConfig[env];
-
-let sequelize;
-
-if (env === "production" && config.use_env_variable) {
-  sequelize = new Sequelize(process.env[config.use_env_variable], config);
-} else {
-  sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
-    host: config.HOST,
-    dialect: config.dialect,
-    pool: config.pool,
+module.exports = (sequelize, Sequelize) => {
+  const User = sequelize.define("auth_user", {
+    // Sequelize handles the 'id' field automatically as the primary key
+    password: {
+      type: Sequelize.STRING(128)
+    },
+    last_login: {
+      type: Sequelize.DATE
+    },
+    is_superuser: {
+      type: Sequelize.BOOLEAN
+    },
+    username: {
+      type: Sequelize.STRING(150),
+      unique: true
+    },
+    first_name: {
+      type: Sequelize.STRING(150)
+    },
+    last_name: {
+      type: Sequelize.STRING(150)
+    },
+    email: {
+      type: Sequelize.STRING(254)
+    },
+    is_staff: {
+      type: Sequelize.BOOLEAN
+    },
+    is_active: {
+      type: Sequelize.BOOLEAN
+    },
+    date_joined: {
+      type: Sequelize.DATE
+    },
+  }, {
+    tableName: 'auth_user', // This must match your actual table name
+    timestamps: false // Your table does not have createdAt/updatedAt columns
   });
-}
 
-const db = {};
-
-db.Sequelize = Sequelize;
-db.sequelize = sequelize;
-
-db.User = require("./user.model.js")(sequelize, Sequelize);
-db.Car = require("./car.model.js")(sequelize, Sequelize);
-db.CarImage = require("./carImage.model.js")(sequelize, Sequelize);
-
-db.Car.hasMany(db.CarImage, {
-  foreignKey: "car_id",
-  sourceKey: "id",
-  as: "images",
-});
-db.CarImage.belongsTo(db.Car, {
-  foreignKey: "car_id",
-  targetKey: "id",
-  as: "car",
-});
-
-// UPDATED: This re-establishes the relationship between Car and User.
-db.Car.belongsTo(db.User, { as: "owner", foreignKey: "owner_id" });
-db.User.hasMany(db.Car, { as: "cars", foreignKey: "owner_id" });
-
-module.exports = db;
+  return User;
+};

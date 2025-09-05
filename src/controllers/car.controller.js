@@ -2,7 +2,6 @@ const sharp = require('sharp');
 const db = require("../models");
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
-const jwt = require('jsonwebtoken');
 const Car = db.Car;
 const CarImage = db.CarImage;
 const path = require('path');
@@ -10,10 +9,8 @@ const fs = require('fs');
 
 const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const parseFeatures = (featuresStr) => {
-  if (!featuresStr || typeof featuresStr !== 'string') return [];
   if (!featuresStr || typeof featuresStr !== 'string') return [];
   return featuresStr.split(',').map(f => f.trim()).filter(Boolean);
 };
@@ -34,7 +31,6 @@ exports.create = async (req, res) => {
 
 
   if (!carData.name || !carData.price) {
-    return res.status(400).send({ message: "Name and price are required." });
     return res.status(400).send({ message: "Name and price are required." });
   }
 
