@@ -60,7 +60,8 @@ exports.create = async (req, res) => {
     let firstImagePath = null;
     if (files && files.length > 0) {
       const imagePromises = files.map((file, index) => {
-        const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
+        // CHANGED: Filename now ends in .webp
+        const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.webp`;
         const filepath = path.join(uploadDir, filename);
         const publicPath = `uploads/${filename}`;
 
@@ -70,7 +71,8 @@ exports.create = async (req, res) => {
 
         return sharp(file.buffer)
           .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
-          .toFormat('jpeg', { quality: 85 })
+          // CHANGED: Output format is now webp with quality 80
+          .toFormat('webp', { quality: 80 })
           .toFile(filepath)
           .then(() => {
             return CarImage.create({
@@ -208,15 +210,15 @@ exports.update = async (req, res) => {
     if (req.files && req.files.length > 0) {
       let currentOrder = existingImages.length;
       for (const file of req.files) {
-        const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
+        // CHANGED: Filename now ends in .webp
+        const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.webp`;
         const filepath = path.join(uploadDir, filename);
-        const publicPath = `/uploads/${filename}`;
-
-        if (currentOrder === 0) newThumbnailPath = publicPath;
+        const publicPath = `uploads/${filename}`;
 
         await sharp(file.buffer)
           .resize({ width: 1280, fit: 'inside', withoutEnlargement: true })
-          .toFormat('jpeg', { quality: 85 })
+          // CHANGED: Output format is now webp with quality 80
+          .toFormat('webp', { quality: 80 })
           .toFile(filepath);
 
         await CarImage.create({ image: publicPath, order: currentOrder++, car_id: id }, { transaction });
