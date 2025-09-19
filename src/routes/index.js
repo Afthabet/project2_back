@@ -1,12 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const userRoutes = require('./user.routes')
 
+// Import route modules
+const authRoutes = require('./auth.routes');
+const userRoutes = require('./user.routes');
 const carRoutes = require('./car.routes');
-const authRoutes = require('./auth.routes'); 
 
-router.use('/cars', carRoutes);
+// Mount routes under /api/*
+router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
-router.use('/auth', authRoutes); 
+router.use('/cars', carRoutes);
+
+// Health check route
+router.get('/', (req, res) => {
+  res.json({ message: 'API is working!' });
+});
 
 module.exports = router;

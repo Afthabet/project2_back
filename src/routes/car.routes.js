@@ -1,28 +1,24 @@
-// routes/car.routes.js
 const express = require('express');
 const router = express.Router();
 const cars = require('../controllers/car.controller.js');
 const multer = require('multer');
+const { authenticateToken } = require('../middleware/auth.middleware'); // Import the middleware
 
-// Configure multer to store files in memory as buffers
-// This is efficient for processing with `sharp` before saving.
+// Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// GET all cars
+// --- Public Routes ---
+// Anyone can view the list of cars and details of a single car
 router.get('/', cars.findAll);
-
-// ✅ This is the route that handles the new car creation.
-router.post('/', upload.array('images', 10), cars.create);
-
-router.put('/:id', upload.array('images', 10), cars.update);
-// GET a single car by ID
 router.get('/:id', cars.findOne);
 
-// PATCH to update a car's status
-router.patch('/:id/status', cars.updateStatus);
-
-// DELETE a car by ID
-router.delete('/:id', cars.delete);
+// --- Protected Routes ---
+// The authenticateToken middleware now protects these routes.
+// It will run BEFORE the controller functions.
+router.post('/', authenticateToken, upload.array('images', 10), cars.create);
+router.put('/:id', authenticateToken, upload.array('images', 10), cars.update);
+router.patch('/:id/status', authenticateToken, cars.updateStatus);
+router.delete('/:id', authenticateToken, cars.delete);
 
 module.exports = router;

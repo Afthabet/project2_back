@@ -1,7 +1,6 @@
 const sharp = require('sharp');
 const db = require("../models");
 const { v4: uuidv4 } = require('uuid');
-const jwt = require('jsonwebtoken');
 const Car = db.Car;
 const CarImage = db.CarImage;
 const path = require('path');
@@ -16,19 +15,12 @@ const parseFeatures = (featuresStr) => {
 };
 
 exports.create = async (req, res) => {
-  const token = req.headers["x-access-token"];
-  if (!token) return res.status(403).send({ message: "No token provided!" });
-
-  let userId;
-  try {
-    userId = jwt.verify(token, process.env.JWT_SECRET || "supersecretkey123").id;
-  } catch (err) {
-    return res.status(401).send({ message: "Unauthorized!" });
-  }
+  // The old token check is removed. The middleware has already verified the user.
+  // The user's ID is now available in `req.user`.
+  const userId = req.user.id;
 
   const carData = req.body;
   const files = req.files;
-
 
   if (!carData.name || !carData.price) {
     return res.status(400).send({ message: "Name and price are required." });
@@ -37,7 +29,7 @@ exports.create = async (req, res) => {
   const transaction = await db.sequelize.transaction();
   try {
     const newCar = await Car.create({
-      id: carData.id,
+      id: carData.id || `car-${uuidv4().slice(0, 8)}`,
       make: carData.make || carData.name.split(' ')[0],
       model: carData.model || carData.name.split(' ').slice(1).join(' '),
       year: parseInt(carData.year),
@@ -53,8 +45,7 @@ exports.create = async (req, res) => {
       grade: carData.grade,
       features: parseFeatures(carData.features),
       isAvailable: true,
-      owner_id: userId,
-      owner_id: userId,
+      owner_id: userId, // Associate the car with the logged-in user
     }, { transaction });
 
     let firstImagePath = null;
@@ -62,7 +53,7 @@ exports.create = async (req, res) => {
       const imagePromises = files.map((file, index) => {
         const filename = `car-${Date.now()}-${uuidv4().slice(0, 6)}.jpeg`;
         const filepath = path.join(uploadDir, filename);
-        const publicPath = `uploads/${filename}`;
+        const publicPath = `/uploads/${filename}`;
 
         if (index === 0) {
           firstImagePath = publicPath;
@@ -88,16 +79,16 @@ exports.create = async (req, res) => {
       await newCar.save({ transaction });
     }
 
-
     await transaction.commit();
-    res.status(201).send(newCar);
+    const resultCar = await Car.findByPk(newCar.id, { include: ["images"] });
+    res.status(201).send(resultCar);
   } catch (error) {
     await transaction.rollback();
-    res.status(500).send({ message: `Error creating car: ${error.message}` });
     res.status(500).send({ message: `Error creating car: ${error.message}` });
   }
 };
 
+// ... (findAll, findOne, and other methods remain the same) ...
 exports.findAll = async (req, res) => {
   try {
     const { status } = req.query;
@@ -109,39 +100,30 @@ exports.findAll = async (req, res) => {
     if (status !== 'all') {
       whereClause.isAvailable = true;
     }
-    // Corrected Query: The invalid 'order' property has been removed.
     const cars = await Car.findAll({
       where: whereClause,
       include: [{ model: CarImage, as: 'images' }]
     });
 
-    // The rest of the function remains the same
     const formattedCars = cars.map(car => {
       const carJson = car.get({ plain: true });
-
-      // Manually sort the images by their order
       if (carJson.images && carJson.images.length > 0) {
         carJson.images.sort((a, b) => a.order - b.order);
       }
-
       carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
-
       if (!carJson.thumbnail && carJson.images && carJson.images.length > 0) {
         carJson.thumbnail = carJson.images[0].image;
       }
-
       carJson.status = carJson.isAvailable ? 'Available' : 'Sold';
       return carJson;
     });
 
     res.send(formattedCars);
   } catch (err) {
-    // Added a log to see the actual error on the server
     console.error("Error in findAll:", err);
     res.status(500).send({ message: "Error retrieving cars." });
   }
 };
-
 exports.findOne = async (req, res) => {
   const id = req.params.id;
   try {
@@ -161,7 +143,6 @@ exports.findOne = async (req, res) => {
     res.status(500).send({ message: "Error retrieving Car with id=" + id });
   }
 };
-
 exports.update = async (req, res) => {
   const id = req.params.id;
   const transaction = await db.sequelize.transaction();
@@ -236,7 +217,6 @@ exports.update = async (req, res) => {
     res.status(500).send({ message: "Error updating car: " + error.message });
   }
 };
-
 exports.updateStatus = async (req, res) => {
   const id = req.params.id;
   try {
@@ -250,7 +230,6 @@ exports.updateStatus = async (req, res) => {
     res.status(500).send({ message: "Error updating car status for id=" + id });
   }
 };
-
 exports.delete = async (req, res) => {
   const id = req.params.id;
   const transaction = await db.sequelize.transaction();
@@ -263,7 +242,6 @@ exports.delete = async (req, res) => {
     const images = await CarImage.findAll({ where: { car_id: id } });
     for (const img of images) {
       const filepath = path.join(__dirname, '..', '..', 'public', img.image);
-      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
       if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     }
     await CarImage.destroy({ where: { car_id: id }, transaction });

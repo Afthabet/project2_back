@@ -1,12 +1,10 @@
-// This file is the main entry point for the application.
-// It imports the Express app, connects to the database, and starts the server.
-
-const app = require('./src/app');
-const db = require("./src/models");
+// Load environment variables FIRST. This is the critical change.
 const dotenv = require("dotenv");
-
-// Load environment variables from .env file
 dotenv.config();
+
+// Now, load the rest of the application modules.
+const app = require('./src/app'); // Corrected path to be relative
+const db = require("./src/models");
 
 const PORT = process.env.PORT || 8080;
 
@@ -16,17 +14,15 @@ const startServer = () => {
   });
 };
 
-// UPDATED: Temporarily add { alter: true } to sync schema changes.
 const initializeDatabaseAndStartServer = async () => {
   try {
-    // This will update your database table to match the model changes.
     await db.sequelize.sync();
     console.log("✅ Synced database successfully.");
     startServer();
-  } catch (err)
- {
+  } catch (err) {
     console.log("❌ Failed to sync database: " + err.message);
   }
 };
 
 initializeDatabaseAndStartServer();
+
