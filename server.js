@@ -20,7 +20,7 @@ const startServer = () => {
 const initializeDatabaseAndStartServer = async () => {
   try {
     // This will update your database table to match the model changes.
-    await db.sequelize.sync();
+    await db.sequelize.sync({ alter: true });
     console.log("✅ Synced database successfully.");
     startServer();
   } catch (err)

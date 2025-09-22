@@ -34,6 +34,10 @@ module.exports = (sequelize, Sequelize) => {
     date_joined: {
       type: Sequelize.DATE
     },
+    refresh_token: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
   }, {
     tableName: 'auth_user', // This must match your actual table name
     timestamps: false // Your table does not have createdAt/updatedAt columns
