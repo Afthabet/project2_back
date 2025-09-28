@@ -122,15 +122,18 @@ exports.create = async (req, res) => {
 
 exports.findAll = async (req, res) => {
   try {
-    const { status } = req.query;
-    const { ownerId } = req.query;
+    const { status, ownerId } = req.query; // CORRECTED: Destructure ownerId from query
     let whereClause = {};
+
+    // CORRECTED: If ownerId is provided, add it to the filter
     if (ownerId) {
       whereClause.owner_id = ownerId;
     }
+
     if (status !== 'all') {
       whereClause.isAvailable = true;
     }
+    
     const cars = await Car.findAll({
       where: whereClause,
       include: [{ model: CarImage, as: 'images' }]
