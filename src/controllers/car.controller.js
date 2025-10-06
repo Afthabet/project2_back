@@ -7,6 +7,7 @@ const CarImage = db.CarImage;
 const ActivityLog = db.ActivityLog;
 const path = require('path');
 const fs = require('fs');
+const { Op } = require('sequelize');
 
 const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -122,41 +123,81 @@ exports.create = async (req, res) => {
 
 exports.findAll = async (req, res) => {
   try {
-    const { status, ownerId } = req.query; // CORRECTED: Destructure ownerId from query
-    let whereClause = {};
+    const { 
+      page = 1, 
+      limit = 12, 
+      sort = 'trending',
+      searchTerm,
+      priceMin,
+      priceMax,
+      yearMin,
+      yearMax,
+      mileageMax,
+      grades,
+      bodyTypes,
+      ownerId, // For admin dashboard
+      status // For admin dashboard
+    } = req.query;
 
-    // CORRECTED: If ownerId is provided, add it to the filter
+    const offset = (page - 1) * limit;
+
+    // --- Build Filter Clause ---
+    const whereClause = { isAvailable: true };
+    if (status === 'all') {
+        delete whereClause.isAvailable; // Show both available and sold
+    }
     if (ownerId) {
-      whereClause.owner_id = ownerId;
+        whereClause.owner_id = ownerId;
     }
 
-    if (status !== 'all') {
-      whereClause.isAvailable = true;
+    if (searchTerm) {
+        whereClause[Op.or] = [
+            { make: { [Op.iLike]: `%${searchTerm}%` } },
+            { model: { [Op.iLike]: `%${searchTerm}%` } }
+        ];
     }
     
-    const cars = await Car.findAll({
+    if (priceMin && priceMax) whereClause.price = { [Op.between]: [priceMin, priceMax] };
+    if (yearMin && yearMax) whereClause.year = { [Op.between]: [yearMin, yearMax] };
+    if (mileageMax) whereClause.mileage = { [Op.lte]: mileageMax };
+    if (grades) whereClause.grade = { [Op.in]: grades.split(',') };
+    if (bodyTypes) whereClause.bodyStyle = { [Op.in]: bodyTypes.split(',') };
+
+    // --- Build Sort Clause ---
+    let orderClause = [['year', 'DESC']]; // Default to 'trending'
+    if (sort === 'price-asc') orderClause = [['price', 'ASC']];
+    if (sort === 'price-desc') orderClause = [['price', 'DESC']];
+    if (sort === 'year-asc') orderClause = [['year', 'ASC']];
+
+    const { count, rows: cars } = await Car.findAndCountAll({
       where: whereClause,
-      include: [{ model: CarImage, as: 'images' }]
+      include: [{ model: CarImage, as: 'images' }],
+      order: orderClause,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      distinct: true // Important for correct count with joins
     });
 
     const formattedCars = cars.map(car => {
       const carJson = car.get({ plain: true });
-
       if (carJson.images && carJson.images.length > 0) {
         carJson.images.sort((a, b) => a.order - b.order);
       }
-
       carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
-
       if (!carJson.thumbnail && carJson.images && carJson.images.length > 0) {
         carJson.thumbnail = carJson.images[0].image;
       }
-
       carJson.status = carJson.isAvailable ? 'Available' : 'Sold';
       return carJson;
     });
 
-    res.send(formattedCars);
+    res.send({
+      totalItems: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      cars: formattedCars
+    });
+
   } catch (err) {
     console.error("Error in findAll:", err);
     res.status(500).send({ message: "Error retrieving cars." });
