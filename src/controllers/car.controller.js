@@ -1,3 +1,4 @@
+// controllers/car.controller.js
 const sharp = require('sharp');
 const db = require("../models");
 const { v4: uuidv4 } = require('uuid');
@@ -123,9 +124,9 @@ exports.create = async (req, res) => {
 
 exports.findAll = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 12, 
+    const {
+      page = 1,
+      limit = 12,
       sort = 'trending',
       searchTerm,
       priceMin,
@@ -142,10 +143,11 @@ exports.findAll = async (req, res) => {
     const offset = (page - 1) * limit;
 
     // --- Build Filter Clause ---
-    const whereClause = { isAvailable: true };
-    if (status === 'all') {
-        delete whereClause.isAvailable; // Show both available and sold
+    const whereClause = {};
+    if (status !== 'all') {
+        whereClause.isAvailable = true;
     }
+
     if (ownerId) {
         whereClause.owner_id = ownerId;
     }
@@ -156,7 +158,7 @@ exports.findAll = async (req, res) => {
             { model: { [Op.iLike]: `%${searchTerm}%` } }
         ];
     }
-    
+
     if (priceMin && priceMax) whereClause.price = { [Op.between]: [priceMin, priceMax] };
     if (yearMin && yearMax) whereClause.year = { [Op.between]: [yearMin, yearMax] };
     if (mileageMax) whereClause.mileage = { [Op.lte]: mileageMax };
@@ -171,7 +173,7 @@ exports.findAll = async (req, res) => {
 
     const { count, rows: cars } = await Car.findAndCountAll({
       where: whereClause,
-      include: [{ model: CarImage, as: 'images' }],
+      include: [{ model: CarImage, as: 'images', order: [['order', 'ASC']] }],
       order: orderClause,
       limit: parseInt(limit),
       offset: parseInt(offset),
@@ -180,9 +182,6 @@ exports.findAll = async (req, res) => {
 
     const formattedCars = cars.map(car => {
       const carJson = car.get({ plain: true });
-      if (carJson.images && carJson.images.length > 0) {
-        carJson.images.sort((a, b) => a.order - b.order);
-      }
       carJson.name = `${carJson.make || ''} ${carJson.model || ''}`.trim();
       if (!carJson.thumbnail && carJson.images && carJson.images.length > 0) {
         carJson.thumbnail = carJson.images[0].image;
@@ -244,7 +243,7 @@ exports.update = async (req, res) => {
             await transaction.rollback();
             return res.status(404).send({ message: "Car not found." });
         }
-        
+
         const nameParts = req.body.name ? req.body.name.split(' ') : [];
         const make = req.body.make || (nameParts.length > 0 ? nameParts[0] : car.make);
         const model = req.body.model || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : car.model);
@@ -266,7 +265,7 @@ exports.update = async (req, res) => {
             grade: req.body.grade,
             features: parseFeatures(req.body.features),
         }, { transaction });
-        
+
         await ActivityLog.create({
             action_type: 'updated',
             details: `Car '${car.make} ${car.model}' was updated.`,

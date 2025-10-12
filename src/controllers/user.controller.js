@@ -1,13 +1,29 @@
+// controllers/user.controller.js
 const db = require("../models");
 const User = db.User;
 const bcrypt = require('bcryptjs');
 
-exports.findAll = (req, res) => {
-  User.findAll({
-    attributes: ['id', 'username', 'email', 'is_superuser', 'is_staff', 'is_active', 'last_login', 'date_joined']
-  })
-  .then(data => res.send(data))
-  .catch(err => res.status(500).send({ message: err.message || "Error retrieving users." }));
+exports.findAll = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
+  try {
+    const { count, rows: users } = await User.findAndCountAll({
+      attributes: ['id', 'username', 'email', 'is_superuser', 'is_staff', 'is_active', 'last_login', 'date_joined'],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['date_joined', 'DESC']]
+    });
+
+    res.send({
+      totalItems: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      users: users
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message || "Error retrieving users." });
+  }
 };
 
 exports.create = async (req, res) => {
@@ -34,7 +50,7 @@ exports.update = async (req, res) => {
   try {
     const user = await User.findByPk(id);
     if (!user) return res.status(404).send({ message: `User with id=${id} not found.` });
-    
+
     const { username, email, password, is_staff, is_superuser, is_active } = req.body;
     user.username = username || user.username;
     user.email = email === undefined ? user.email : email;
@@ -42,7 +58,7 @@ exports.update = async (req, res) => {
     user.is_superuser = is_superuser;
     user.is_active = is_active;
     if (password) user.password = bcrypt.hashSync(password, 8);
-    
+
     await user.save();
     const userJson = user.toJSON();
     delete userJson.password;
