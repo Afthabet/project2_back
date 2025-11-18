@@ -72,7 +72,7 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   const id = req.params.id;
   
-  // Start a transaction to ensure both operations happen, or neither does
+  // Start a transaction to ensure both operations succeed or fail together
   const transaction = await db.sequelize.transaction();
 
   try {
@@ -92,7 +92,7 @@ exports.delete = async (req, res) => {
       res.status(404).send({ message: `Cannot delete User with id=${id}. Maybe User was not found!` });
     }
   } catch (err) {
-    // If any error occurs, rollback the transaction so we don't partially delete data
+    // If any error occurs, rollback the transaction
     await transaction.rollback();
     console.error("Error deleting user:", err);
     res.status(500).send({ message: "Could not delete User with id=" + id });
