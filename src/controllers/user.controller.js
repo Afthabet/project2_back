@@ -1,6 +1,7 @@
 // controllers/user.controller.js
 const db = require("../models");
 const User = db.User;
+const ActivityLog = db.ActivityLog;
 const bcrypt = require('bcryptjs');
 
 exports.findAll = async (req, res) => {
@@ -68,12 +69,32 @@ exports.update = async (req, res) => {
   }
 };
 
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const id = req.params.id;
-  User.destroy({ where: { id: id } })
-    .then(num => {
-      if (num == 1) res.send({ message: "User was deleted successfully!" });
-      else res.status(404).send({ message: `Cannot delete User with id=${id}.` });
-    })
-    .catch(err => res.status(500).send({ message: "Could not delete User with id=" + id }));
+  
+  // Start a transaction to ensure both operations happen, or neither does
+  const transaction = await db.sequelize.transaction();
+
+  try {
+    // 1. First, delete all Activity Logs associated with this user
+    await ActivityLog.destroy({ where: { user_id: id }, transaction });
+
+    // 2. Then, delete the User
+    const num = await User.destroy({ where: { id: id }, transaction });
+
+    if (num == 1) {
+      // If successful, commit the transaction
+      await transaction.commit();
+      res.send({ message: "User was deleted successfully!" });
+    } else {
+      // If user not found, rollback
+      await transaction.rollback();
+      res.status(404).send({ message: `Cannot delete User with id=${id}. Maybe User was not found!` });
+    }
+  } catch (err) {
+    // If any error occurs, rollback the transaction so we don't partially delete data
+    await transaction.rollback();
+    console.error("Error deleting user:", err);
+    res.status(500).send({ message: "Could not delete User with id=" + id });
+  }
 };
