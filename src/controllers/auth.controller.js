@@ -46,10 +46,13 @@ exports.login = async (req, res) => {
     user.refresh_token = refreshToken;
     await user.save();
     
+    // ===> UPDATED COOKIE SETTINGS <===
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+        // 'None' allows the cookie to be sent in cross-site requests (frontend -> backend)
+        sameSite: 'None', 
+        // 'Secure' is REQUIRED when sameSite is 'None'. It means HTTPS only.
+        secure: true, 
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -106,9 +109,9 @@ exports.refreshToken = async (req, res) => {
         // Set new refresh token cookie
         res.cookie('refreshToken', newRefreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            sameSite: 'None',
+            secure: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
         
         res.status(200).send({
